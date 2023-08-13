@@ -9,33 +9,56 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 class FileTodoListStorageIntegrationTest {
 
+    private TodoListStorage todoListStorage;
+    private Path testFilePath;
+
     @BeforeEach
-    void beforeEach() {
-        // implement setup if necessary
+    void beforeEach() throws IOException {
+        testFilePath = Files.createTempFile("test-todo-list", ".txt");
+        todoListStorage = new FileTodoListStorage(testFilePath);
     }
 
     @AfterEach
-    void afterEach() {
-        // implement cleanup if necessary
+    void afterEach() throws IOException {
+        Files.deleteIfExists(testFilePath);
     }
 
     @Test
-    void example() {
-        // tspp-labs/build/tmp/my-list.txt
-        Path tmpFile = getBuildTmpDir().resolve(Paths.get("my-list.txt"));
+    void saveAndLoadTodoList() throws StorageException {
+        TodoList originalTodoList = new TodoList();
+        originalTodoList.add("Task 1");
+        originalTodoList.add("Task 2");
+        originalTodoList.add("Task 3");
+
+        todoListStorage.save(originalTodoList);
+
+        TodoList loadedTodoList = todoListStorage.load();
+
+        assertEquals(originalTodoList.items(), loadedTodoList.items());
     }
 
-    public static Path getBuildTmpDir() {
-        final Path tmp = Paths.get(System.getProperty("user.dir")).resolve("build").resolve("tmp");
-        if (!Files.exists(tmp)) {
-            try {
-                return Files.createDirectory(tmp);
-            } catch (IOException ioEx) {
-                throw new RuntimeException(ioEx);
-            }
-        }
-        return tmp;
+    @Test
+    void loadNonExistentTodoList() throws StorageException, IOException {
+        assertTrue(Files.deleteIfExists(testFilePath));
+
+        TodoList loadedTodoList = todoListStorage.load();
+
+        assertTrue(loadedTodoList.items().isEmpty());
+    }
+
+    @Test
+    void handleIOExceptionDuringSave() {
+        Path readOnlyPath = Paths.get("/read-only-path/todo.txt");
+        TodoListStorage readOnlyStorage = new FileTodoListStorage(readOnlyPath);
+        TodoList todoList = new TodoList();
+        todoList.add("Test task");
+
+        assertThrows(StorageException.class, () -> readOnlyStorage.save(todoList));
     }
 }
